@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-app.use(cors({ origin: "http://localhost:5001" }));
+app.use(cors({ origin: "http://localhost:3001" }));
 app.use(express.json());
 const port = 5001;
 
@@ -105,6 +105,10 @@ app.post("/esb/reading-history", (req, res, next) => {
     }
     
 })
+
+
+
+
 
 // app.post("/esb/save-reading", (req, res, next) => {
 //     // assumptions
