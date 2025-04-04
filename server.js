@@ -377,21 +377,27 @@ app.get("/connections", (req, res) => {
     });
   });
   
-app.delete("/connections/:id", (req, res) => {
-const { id } = req.params;
+  app.put("/connections/:id", (req, res) => {
+    const { id } = req.params;
 
-const query = `
-    DELETE FROM connection
-    WHERE connid = ?;
-`;
+    const query = `
+        UPDATE connection
+        SET terminated = 1
+        WHERE connid = ?;
+    `;
 
-db.run(query, [id], function (err) {
-    if (err) {
-    console.error(err.message);
-    return res.status(500).json({ error: "Failed to delete connection" });
-    }
-    res.json({ message: "Connection deleted successfully", connid: id });
-});
+    db.run(query, [id], function (err) {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: "Failed to update connection" });
+        }
+
+        if (this.changes > 0) {
+            res.json({ message: "Connection updated successfully", connid: id });
+        } else {
+            res.status(404).json({ error: "Connection not found" });
+        }
+    });
 });
 
 app.get("/complaints", (req, res) => {
@@ -432,6 +438,31 @@ db.run(query, [id], function (err) {
     res.json({ message: "Complaint deleted successfully", complaintid: id });
 });
 });
+
+app.get("/service-status", (req, res) => {
+    const { personId } = req.query;
+  
+    if (!personId) {
+      return res.status(400).json({ error: "Person ID is required" });
+    }
+  
+    const query = `
+      SELECT c.connid, c.terminated, c.terminatedDate, c.issuedDate, p.name, p.mobile, p.address
+      FROM connection c
+      INNER JOIN consumer con ON c.consumerid = con.consumerid
+      INNER JOIN person p ON con.id = p.id
+      WHERE p.id = ?;
+    `;
+  
+    db.all(query, [personId], (err, rows) => {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: "Failed to fetch connections" });
+      }
+      res.json(rows);
+    });
+  });
+  
   
 
 app.listen(port, () => {
