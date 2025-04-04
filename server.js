@@ -8,7 +8,6 @@ app.use(cors({ origin: "http://localhost:3000" }));
 app.use(express.json());
 const port = 5001;
 
-// Database connection
 const dbPath = path.join(__dirname, "database", "schema.db");
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -18,10 +17,8 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-// Enable foreign keys
 db.run('PRAGMA foreign_keys = ON');
 
-// Simple database check to verify tables exist
 db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='person'", (err, row) => {
     if (err) {
         console.error("Error checking database tables:", err.message);
@@ -66,7 +63,6 @@ app.post("/esb/login/user", (req, res, next) => {
         } 
         
         if (row) {
-            // Check if this person is a consumer
             db.get("SELECT * FROM consumer WHERE id = ?", [aadhaar], (err, consumerRow) => {
                 if (err) {
                     console.error("Error checking consumer status:", err.message);
@@ -95,7 +91,6 @@ app.post("/esb/login/user", (req, res, next) => {
     });
 });
 
-// Inspector login
 app.post("/esb/login/inspector", (req, res, next) => {
     const {aadhaar, mobile} = req.body;
     console.log("Inspector login attempt:", aadhaar, mobile); // Debug log
@@ -144,7 +139,6 @@ app.post("/esb/login/inspector", (req, res, next) => {
     });
 });
 
-// Verify consumer
 app.post("/esb/verify-consumer", (req, res, next) => {
     const {consumerid, mobile} = req.body;
     
@@ -192,7 +186,6 @@ app.post("/esb/verify-consumer", (req, res, next) => {
     });
 });
 
-// Calculate bill
 app.post("/esb/calculate-bill", (req, res, next) => {
     const {consumerid} = req.body;
     
@@ -233,7 +226,6 @@ app.post("/esb/calculate-bill", (req, res, next) => {
     });
 });
 
-// Reading history
 app.post("/esb/reading-history", (req, res, next) => {
     const {consumerid} = req.body;
     
@@ -277,7 +269,6 @@ app.post("/esb/reading-history", (req, res, next) => {
     });
 });
 
-// Add complaint
 app.post("/esb/add-complaint", (req, res, next) => {
     const {consumerNo, title, description} = req.body;
     
@@ -306,7 +297,6 @@ app.post("/esb/add-complaint", (req, res, next) => {
     });
 });
 
-// Get all complaints
 app.get("/esb/complaints/:consumerNo", (req, res, next) => {
     const consumerNo = req.params.consumerNo;
     
@@ -337,7 +327,6 @@ app.post("/esb/mark-bill-paid", (req, res, next) => {
         return res.status(400).json({error: "Missing Bill ID or Consumer ID"});
     }
     
-    // Update the bill status to paid in the database
     const query = `
         UPDATE bill 
         SET isPaid = 1, paidDate = ? 
@@ -366,8 +355,85 @@ app.post("/esb/mark-bill-paid", (req, res, next) => {
     });
 });
 
+app.get("/connections", (req, res) => {
+    const { consumerId } = req.query;
+  
+    if (!consumerId) {
+      return res.status(400).json({ error: "Consumer ID is required" });
+    }
+  
+    const query = `
+      SELECT connid, terminated, terminatedDate, issuedDate
+      FROM connection
+      WHERE consumerid = ?;
+    `;
+  
+    db.all(query, [consumerId], (err, rows) => {
+      if (err) {
+        console.error(err.message);
+        return res.status(500).json({ error: "Failed to fetch connections" });
+      }
+      res.json(rows);
+    });
+  });
+  
+app.delete("/connections/:id", (req, res) => {
+const { id } = req.params;
 
-// Start server
+const query = `
+    DELETE FROM connection
+    WHERE connid = ?;
+`;
+
+db.run(query, [id], function (err) {
+    if (err) {
+    console.error(err.message);
+    return res.status(500).json({ error: "Failed to delete connection" });
+    }
+    res.json({ message: "Connection deleted successfully", connid: id });
+});
+});
+
+app.get("/complaints", (req, res) => {
+const { consumerNo } = req.query;
+
+if (!consumerNo) {
+    return res.status(400).json({ error: "Consumer number is required" });
+}
+
+const query = `
+    SELECT complaintid, title, description, dateIssued
+    FROM complaint
+    WHERE consumerNo = ?;
+`;
+
+db.all(query, [consumerNo], (err, rows) => {
+    if (err) {
+    console.error(err.message);
+    return res.status(500).json({ error: "Failed to fetch complaints" });
+    }
+    res.json(rows);
+});
+});
+
+app.delete("/complaints/:id", (req, res) => {
+const { id } = req.params;
+
+const query = `
+    DELETE FROM complaint
+    WHERE complaintid = ?;
+`;
+
+db.run(query, [id], function (err) {
+    if (err) {
+    console.error(err.message);
+    return res.status(500).json({ error: "Failed to delete complaint" });
+    }
+    res.json({ message: "Complaint deleted successfully", complaintid: id });
+});
+});
+  
+
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 });
